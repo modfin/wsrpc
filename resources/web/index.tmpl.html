@@ -1,0 +1,40 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>The HTML5 Herald</title>
+    <meta name="description" content="The HTML5 Herald">
+    <meta name="author" content="SitePoint">
+</head>
+
+<body>
+
+<div style="width: 100%">
+
+    <div style="display: inline-block; width: 50%; vertical-align: top;">
+        <label>type</label><br/>
+        <input id="type" value="STREAM" style="width:90%;"/><br/>
+
+        <label>method</label><br/>
+        <input id="method" value="count" style="width:90%;"/><br/>
+
+        <label>params</label><br/>
+        <textarea id="params" style="width:90%; height: 50px;">{"count":13}</textarea>
+        </br>
+        <button onClick="addTask()">Add</button>
+        <div id="task" style="white-space: pre; font-family: monospace;"></div>
+        <button onClick="demoSend()">send</button>
+        <button onClick="demoCall()">demoCall</button>
+        <button onClick="demoStream()">demoStream</button>
+    </div
+    ><div id="resp" style="white-space: pre; font-family: monospace;display: inline-block; width: 50%;">
+    </div>
+
+</div>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/lodash@4.17.15/lodash.min.js"></script>
+<script>
+{{.JS}}
+</script>
+</html>
