@@ -9,7 +9,7 @@ function WSRPC(url, disableWebsocket) {
 	var wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + url;
 	var httpUrl = window.location.protocol + '://' + url;
 
-	var websocketEnabled = false;
+	var websocketEnabled = true;
 	var connected = false;
 
 	var taskCounter = 0;

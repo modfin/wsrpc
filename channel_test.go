@@ -107,7 +107,7 @@ func TestInfChannel_write(t *testing.T) {
 		{name: "Simple write string", msg: defaultString, withReader: true, expectedErr: nil, expectTimeout: false},
 		{name: "Simple write int", msg: 12, withReader: true, expectedErr: nil, expectTimeout: false},
 		{name: "Write without reader", msg: defaultString, withReader: false, expectedErr: nil, expectTimeout: true},
-		{name: "Write on closed chan", msg: defaultString, withReader: false, expectedErr: errChanClosed, expectTimeout: false,
+		{name: "Write on closed chan", msg: defaultString, withReader: false, expectedErr: ErrChanClosed, expectTimeout: false,
 			preparation: func(ch *InfChannel) {
 				ch.Close()
 			},
@@ -181,7 +181,7 @@ func TestInfChannel_read(t *testing.T) {
 		{name: "Simple read string", expectedMsg: defaultString, withWriter: true},
 		{name: "Simple read int", expectedMsg: 12, withWriter: true},
 		{name: "Read without writer", expectedMsg: defaultString, expectTimeout: true},
-		{name: "Read closed chan", expectedErr: errChanClosed,
+		{name: "Read closed chan", expectedErr: ErrChanClosed,
 			preparation: func(ch *InfChannel) {
 				ch.Close()
 			},
@@ -217,7 +217,7 @@ func TestInfChannel_read(t *testing.T) {
 
 				go func() {
 					msg, err := ch.read()
-					if err == errChanClosed {
+					if err == ErrChanClosed {
 						fmt.Println(tc.name, msg, err)
 					}
 					intRetc <- readRet{msg, err}
@@ -264,8 +264,8 @@ func TestInfChannel_clear(t *testing.T) {
 		expectedErr error
 	}{
 		{name: "empty chan"},
-		{name: "with reader", withReader: true, expectedErr: errChanClosed},
-		{name: "with writer", withWriter: true, expectedErr: errChanClosed},
+		{name: "with reader", withReader: true, expectedErr: ErrChanClosed},
+		{name: "with writer", withWriter: true, expectedErr: ErrChanClosed},
 	}
 
 	for _, tc := range tt {
@@ -420,7 +420,7 @@ func TestResponseChannel_write(t *testing.T) {
 				return ch.Write(&Response{})
 			},
 		},
-		{name: "Write on closed chan", expectedErr: errChanClosed,
+		{name: "Write on closed chan", expectedErr: ErrChanClosed,
 			preparation: func(ch *ResponseChannel) error {
 				ch.Close()
 
@@ -488,7 +488,7 @@ func TestResponseChannel_read(t *testing.T) {
 		{name: "Simple read", withWriter: true},
 		{name: "Read without writer", expectTimeout: true},
 		{name: "Read empty chan", size: 1, expectTimeout: true},
-		{name: "Read closed chan", expectedErr: errChanClosed,
+		{name: "Read closed chan", expectedErr: ErrChanClosed,
 			preparation: func(ch *ResponseChannel) {
 				ch.Close()
 			},

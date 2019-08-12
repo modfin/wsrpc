@@ -22,8 +22,8 @@ type Router struct {
 }
 
 type SendFunction func(response *Response) error
-type callHandler func(ctx Context) (err error)
-type streamHandler func(ctx Context, ch *ResponseChannel) (err error)
+type CallHandler func(ctx Context) (err error)
+type StreamHandler func(ctx Context, ch *ResponseChannel) (err error)
 
 type bundle struct {
 	method     string
@@ -32,12 +32,12 @@ type bundle struct {
 
 type functionBundle struct {
 	bundle
-	function callHandler
+	function CallHandler
 }
 
 type streamBundle struct {
 	bundle
-	stream streamHandler
+	stream StreamHandler
 }
 
 func NewRouter() *Router {
@@ -165,7 +165,7 @@ func (r *Router) SetErrorPostProc(fn func(error)) {
 	r.errPostProc = fn
 }
 
-func (r *Router) SetHandler(method string, handler callHandler, middleware ...Middleware) {
+func (r *Router) SetHandler(method string, handler CallHandler, middleware ...Middleware) {
 	r.rpcFunctions[method] = functionBundle{
 		bundle: bundle{
 			method:     method,
@@ -175,7 +175,7 @@ func (r *Router) SetHandler(method string, handler callHandler, middleware ...Mi
 	}
 }
 
-func (r *Router) SetStream(method string, handler streamHandler, middleware ...Middleware) {
+func (r *Router) SetStream(method string, handler StreamHandler, middleware ...Middleware) {
 	r.rpcStreams[method] = streamBundle{
 		bundle: bundle{
 			method:     method,
@@ -297,7 +297,7 @@ func (r *Router) routeRequest(batch *batch, outc *InfChannel) {
 		for runningJobs > 0 {
 			res, err := batchc.read()
 			if err != nil {
-				if err == errChanClosed {
+				if err == ErrChanClosed {
 					runningJobs--
 				}
 
@@ -348,17 +348,17 @@ func (r *Router) createHandler(job job, jobc *ResponseChannel) (func() error, *E
 			return nil, MethodNotFoundError(job.request.Method)
 		}
 
-		exec := func() error {
+		exec := func(cc Context) error {
 			defer func() {
-				if job.response.Result != nil || (job.response.Header != nil && len(job.response.Header) > 0) {
-					err := jobc.Write(job.response)
+				if cc.Response().Result != nil || (cc.Response().Header != nil && len(cc.Response().Header) > 0) {
+					err := jobc.Write(cc.Response())
 					if err != nil {
 						r.errc <- fmt.Errorf("exec handler could not response: %v", err)
 					}
 					return
 				}
 
-				rsp := job.NewResponse()
+				rsp := cc.NewResponse()
 				rsp.Error = EOF()
 
 				err := jobc.Write(rsp)
@@ -367,7 +367,7 @@ func (r *Router) createHandler(job job, jobc *ResponseChannel) (func() error, *E
 				}
 			}()
 
-			err := rh.stream(job, jobc)
+			err := rh.stream(cc, jobc)
 			if err != nil {
 				return err
 			}
@@ -385,9 +385,9 @@ func (r *Router) createHandler(job job, jobc *ResponseChannel) (func() error, *E
 			return nil, MethodNotFoundError(job.request.Method)
 		}
 
-		exec := func() error {
+		exec := func(cc Context) error {
 
-			err := rh.function(job)
+			err := rh.function(cc)
 			if err != nil {
 				return err
 			}

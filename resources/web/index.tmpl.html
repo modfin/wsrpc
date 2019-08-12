@@ -13,16 +13,14 @@
 <div style="width: 100%">
 
     <div style="display: inline-block; width: 50%; vertical-align: top;">
-        <label>type</label><br/>
-        <input id="type" value="STREAM" style="width:90%;"/><br/>
-
-        <label>method</label><br/>
-        <input id="method" value="count" style="width:90%;"/><br/>
-
-        <label>params</label><br/>
-        <textarea id="params" style="width:90%; height: 50px;">{"count":13}</textarea>
+        <label>request</label><br/>
+        <textarea id="request" style="width:90%; height: 250px;">
+{
+    "type": "STREAM",
+    "method": "subscription_watch"
+}
+        </textarea>
         </br>
-        <button onClick="addTask()">Add</button>
         <div id="task" style="white-space: pre; font-family: monospace;"></div>
         <button onClick="demoSend()">send</button>
         <button onClick="demoCall()">demoCall</button>

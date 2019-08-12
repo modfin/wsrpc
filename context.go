@@ -20,6 +20,7 @@ type Context interface {
 	Request() *Request
 	Response() *Response
 	NewResponse() *Response
+	WithValue(key interface{}, value interface{}) Context
 }
 
 type socket struct {
@@ -181,4 +182,10 @@ func (j job) Request() *Request {
 
 func (j job) Response() *Response {
 	return j.response
+}
+
+func (j job) WithValue(key interface{}, value interface{}) Context {
+	j.Context = context.WithValue(j.Context, key, value)
+
+	return j
 }

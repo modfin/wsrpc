@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	errChanClosed = errors.New("channel closed")
+	ErrChanClosed = errors.New("channel closed")
 )
 
 type InfChannel struct {
@@ -33,19 +33,19 @@ func (c *InfChannel) Close() {
 func (c *InfChannel) write(msg interface{}) (err error) {
 	defer func() {
 		if recover() != nil {
-			err = errChanClosed
+			err = ErrChanClosed
 		}
 	}()
 
 	select {
 	case <-c.closed:
-		return errChanClosed
+		return ErrChanClosed
 	default:
 	}
 
 	select {
 	case <-c.closed:
-		return errChanClosed
+		return ErrChanClosed
 	case c.ch <- msg:
 	}
 
@@ -55,7 +55,7 @@ func (c *InfChannel) write(msg interface{}) (err error) {
 func (c *InfChannel) read() (interface{}, error) {
 	msg, ok := <-c.ch
 	if !ok {
-		return nil, errChanClosed
+		return nil, ErrChanClosed
 	}
 
 	return msg, nil
@@ -111,27 +111,27 @@ func (c *ResponseChannel) Closed() bool {
 func (c *ResponseChannel) Write(msg *Response) (err error) {
 	defer func() {
 		if recover() != nil {
-			err = errChanClosed
+			err = ErrChanClosed
 		}
 	}()
 
 	for !c.Closed() {
 		select {
 		case <-c.closed:
-			return errChanClosed
+			return ErrChanClosed
 		case c.ch <- msg:
 			return nil
 		default:
 		}
 	}
 
-	return errChanClosed
+	return ErrChanClosed
 }
 
 func (c *ResponseChannel) read() (*Response, error) {
 	msg, ok := <-c.ch
 	if !ok {
-		return nil, errChanClosed
+		return nil, ErrChanClosed
 	}
 
 	return msg, nil

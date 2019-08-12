@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "s5tdcjh84+tiKS3oSq77mzjB970=",
+			"path": "github.com/google/uuid",
+			"revision": "c2e93f3ae59f2904160ceaab466009f965df46d6",
+			"revisionTime": "2019-04-16T17:24:45Z"
+		},
+		{
 			"checksumSHA1": "hoilQzrHNOxF5Tc6ctXNTDpv4ck=",
 			"path": "github.com/gorilla/websocket",
 			"revision": "ae1634f6a98965ded3b8789c626cb4e0bd78c3de",
