@@ -20,6 +20,7 @@ type Context interface {
 	Request() *Request
 	Response() *Response
 	NewResponse() *Response
+	HttpRequest() *http.Request
 	WithValue(key interface{}, value interface{}) Context
 }
 
@@ -71,7 +72,7 @@ type batch struct {
 	jobs    []job
 }
 
-func createBatch(data []byte) (*batch, error) {
+func createBatch(data []byte, httpRequest *http.Request) (*batch, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	batch := batch{
 		ctx:    ctx,
@@ -96,6 +97,7 @@ func createBatch(data []byte) (*batch, error) {
 				cancel:   cancel,
 				request:  &req,
 				response: newResponse(req.Id, nil),
+				httpRequest: httpRequest,
 			})
 		}
 
@@ -117,6 +119,7 @@ func createBatch(data []byte) (*batch, error) {
 				cancel:   cancel,
 				request:  &req,
 				response: newResponse(req.Id, nil),
+				httpRequest: httpRequest,
 			},
 		}
 	}
@@ -165,6 +168,7 @@ type job struct {
 	cancel   func()
 	once     sync.Once
 	request  *Request
+	httpRequest *http.Request
 	response *Response
 }
 
@@ -188,4 +192,8 @@ func (j job) WithValue(key interface{}, value interface{}) Context {
 	j.Context = context.WithValue(j.Context, key, value)
 
 	return j
+}
+
+func (j job) HttpRequest() *http.Request{
+	return j.httpRequest
 }

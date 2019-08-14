@@ -205,7 +205,7 @@ func (r *Router) startWS(sock *socket) error {
 			continue
 		}
 
-		batch, err := createBatch(data)
+		batch, err := createBatch(data, sock.req)
 		if err != nil {
 			r.errc <- r.errPreProc(err)
 		}
@@ -224,7 +224,7 @@ func (r *Router) startLongPoll(sock *socket) error {
 		return err
 	}
 
-	batch, err := createBatch(data)
+	batch, err := createBatch(data, sock.req)
 	if err != nil {
 		r.errc <- r.errPreProc(err)
 		return err
