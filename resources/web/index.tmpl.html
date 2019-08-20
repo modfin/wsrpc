@@ -15,16 +15,20 @@
     <div style="display: inline-block; width: 50%; vertical-align: top;">
         <label>request</label><br/>
         <textarea id="request" style="width:90%; height: 250px;">
-{
-    "type": "STREAM",
-    "method": "subscription_watch"
-}
+[
+    {
+        "type": "CALL",
+        "method": "subscription_list"
+    },
+    {
+        "type": "CALL",
+        "method": "subscription_history"
+    }
+]
         </textarea>
         </br>
         <div id="task" style="white-space: pre; font-family: monospace;"></div>
         <button onClick="demoSend()">send</button>
-        <button onClick="demoCall()">demoCall</button>
-        <button onClick="demoStream()">demoStream</button>
     </div
     ><div id="resp" style="white-space: pre; font-family: monospace;display: inline-block; width: 50%;">
     </div>

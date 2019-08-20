@@ -21,13 +21,14 @@ function WSRPC(url, disableWebsocket) {
 	var timeout = 10;
 	var errCount = 0;
 
-	function newPayload(type, method, params) {
+	function newPayload(type, method, params, header) {
 		return {
 			jsonrpc: "2.0",
 			id: ++taskCounter,
 			type: type,
 			method: method,
-			params: params
+			params: params,
+			header: header,
 		}
 	}
 
@@ -171,8 +172,6 @@ function WSRPC(url, disableWebsocket) {
 			}
 
 			if (!websocketEnabled) {
-				console.log('batches', JSON.stringify(batches, null, 2));
-				console.log('resolvers ', JSON.stringify(resolver, null, 2));
 				var watchers;
 				if (resolver.batchId !== undefined) {
 					watchers = batches[resolver.batchId];
@@ -181,7 +180,6 @@ function WSRPC(url, disableWebsocket) {
 					watchers.push(obj.id)
 				}
 
-				console.log('found: ', resolver.batchId, ' have ', JSON.stringify(watchers));
 				watchers.forEach(function(id) {
 					var payload = resolvers[id].payload;
 
@@ -248,6 +246,7 @@ function WSRPC(url, disableWebsocket) {
 				args.calls.push({
 					method: args.method,
 					params: args.params,
+					header: args.header,
 				})
 			}
 
@@ -255,7 +254,7 @@ function WSRPC(url, disableWebsocket) {
 			var promises = [];
 			args.calls.forEach(function (call) {
 				var p = new Promise(function (resolve, reject) {
-					var payload = newPayload('CALL', call.method, call.params);
+					var payload = newPayload('CALL', call.method, call.params, call.header);
 					payloads.push(payload);
 
 					resolvers[payload.id] = {
@@ -288,7 +287,6 @@ function WSRPC(url, disableWebsocket) {
 			return promises.length > 1 ? promises : promises[0];
 		},
 		streamrx: function (args) {
-			console.log('!!args.calls', !!args.calls);
 			if (!!args.calls && args.calls.length > 1) {
 
 				args.batchId = batchCounter++;
@@ -305,7 +303,7 @@ function WSRPC(url, disableWebsocket) {
 
 			var payloads = [];
 			args.calls.forEach(function (call) {
-				var payload = newPayload('STREAM', call.method, call.params);
+				var payload = newPayload('STREAM', call.method, call.params, call.header);
 				payloads.push(payload);
 
 				if (args.batchId !== undefined) {
@@ -321,7 +319,6 @@ function WSRPC(url, disableWebsocket) {
 					finalCallback: args.finalCallback,
 				};
 			});
-			console.log(JSON.stringify(resolvers, null, 2))
 
 			var data;
 			if (payloads.length > 1) {
