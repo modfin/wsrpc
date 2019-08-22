@@ -17,12 +17,18 @@
         <textarea id="request" style="width:90%; height: 250px;">
 [
     {
-        "type": "CALL",
-        "method": "subscription_list"
+    "type": "STREAM",
+    "method": "count",
+    "header": {
+        "state": 5
+        }
     },
     {
-        "type": "CALL",
-        "method": "subscription_history"
+    "type": "STREAM",
+    "method": "count",
+    "header": {
+        "state": 2
+        }
     }
 ]
         </textarea>

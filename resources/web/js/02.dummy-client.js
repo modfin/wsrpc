@@ -9,9 +9,9 @@ if (!Array.isArray) {
 /* ----------------------------------------------- */
 /* ----------------------------------------------- */
 
-var ws = WSRPC("/kafka/ws", false);
+var ws = WSRPC("/kafka/ws", true);
 var responseArea = document.getElementById("resp");
-var responses = {};
+var responses = [];
 
 
 function demoSend() {
@@ -24,13 +24,19 @@ function demoSend() {
 		finalCallback: onResponse,
 	};
 
+	var type;
 	if (Array.isArray(req)) {
 		var calls = [];
 
 		_.forEach(req, r => {
-			args.type = r.type;
+			if (!!type && r.type !== type) {
+				type = 'INVALID';
+				return
+			}
+			type = r.type;
 
 			calls.push({
+				type: r.type,
 				method: r.method,
 				params: r.params,
 				header: r.header,
@@ -39,14 +45,15 @@ function demoSend() {
 
 		args.calls = calls;
 	} else if (typeof req === 'object') {
+		type = req.type;
+
 		args.type = req.type;
 		args.header = req.header;
 		args.method = req.method;
 		args.params = req.params;
 	}
 
-
-	switch (args.type) {
+	switch (type) {
 		case 'STREAM':
 			ws.streamrx(args);
 			break;
@@ -54,30 +61,26 @@ function demoSend() {
 			ws.call(args);
 			break;
 		default:
-			console.log("bad request type");
+			console.log("bad request type(s)");
 	}
 
 }
 
 function printResult(res) {
-	responses[res.id] = {
-		headers: res.header,
-		result: res.result ? res.result : res.error,
-	};
+	responses.unshift({
+		jobId: res.id,
+		batchId: res.batchId,
+		// headers: !!res.header ? res.header : undefined,
+		result: !res.error ? res.result : res.error,
+	});
 
 	responseArea.innerText = JSON.stringify(responses, null, 2);
 }
 
 function onResponse(res) {
 	if (Array.isArray(res)) {
-		_.forEach(res, r => {
-			delete(res.error);
-
-			printResult(res)
-		})
+		_.forEach(res, printResult)
 	} else {
-		delete(res.error);
-
 		printResult(res)
 	}
 }
