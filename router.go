@@ -263,7 +263,7 @@ func (r *Router) routeRequest(batch *batch, outc *InfChannel) {
 	for i := range batch.jobs {
 		job := batch.jobs[i]
 
-		handler, err := r.createHandler(job, batch.channel)
+		handler, err := r.createHandler(job, batchc)
 		if err != nil {
 			r.errc <- err
 
@@ -350,12 +350,17 @@ func (r *Router) createHandler(job job, jobc *ResponseChannel) (func() error, *E
 
 		exec := func(cc Context) error {
 			defer func() {
+				select {
+				case <-cc.Done():
+					return
+				default:
+				}
+
 				if cc.Response().Result != nil || (cc.Response().Header != nil && len(cc.Response().Header) > 0) {
 					err := jobc.Write(cc.Response())
 					if err != nil {
-						r.errc <- fmt.Errorf("exec handler could not response: %v", err)
+						r.errc <- fmt.Errorf("exec handler could not send respose: %v", err)
 					}
-					return
 				}
 
 				rsp := cc.NewResponse()

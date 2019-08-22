@@ -2,6 +2,8 @@
 
 function WSRPC(url, disableWebsocket) {
 	var ws;
+	var connected = false;
+	var errCount = 0;
 
 	if (url[0] === '/') {
 		url = window.location.host + url
@@ -9,60 +11,14 @@ function WSRPC(url, disableWebsocket) {
 	var wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + url;
 	var httpUrl = window.location.protocol + '://' + url;
 
-	var websocketEnabled = true;
-	var connected = false;
+	var clearingQueue = false;
+	var queue = [];
 
 	var taskCounter = 0;
-	var batchCounter = 0;
-	var stack = [];
 	var resolvers = {};
+	var batchCounter = 0;
 	var batches = {};
 
-	var timeout = 10;
-	var errCount = 0;
-
-	function newPayload(type, method, params, header) {
-		return {
-			jsonrpc: "2.0",
-			id: ++taskCounter,
-			type: type,
-			method: method,
-			params: params,
-			header: header,
-		}
-	}
-
-	function send(data) {
-		if (!!ws && websocketEnabled) {
-			ws.send(data);
-			return
-		}
-
-		function onError(err) {
-			console.log("internal err: ", err);
-			return undefined
-		}
-
-		fetch(httpUrl, {
-			method: 'POST',
-			body: data,
-		}).then(
-			function (res) {
-				res.json().then(onmessage, onError)
-			},
-			function (err) {
-				err.json().then(onmessage, onError)
-			}
-		)
-	}
-
-	function onmessage(data) {
-		if (Array.isArray(data)) {
-			data.forEach(parseMessage);
-			return
-		}
-		parseMessage(data);
-	}
 
 
 	function connect() {
@@ -74,16 +30,15 @@ function WSRPC(url, disableWebsocket) {
 		taskCounter = 0;
 
 		ws.onopen = function () {
-			timeout = 10;
 			connected = true;
-			while (stack.length > 0) {
-				send(stack.shift())
-			}
-		};
 
+			reQueue();
+			checkConnectivity();
+		};
 		ws.onclose = function () {
 			connected = false;
-			reconnect()
+
+			reQueue();
 		};
 
 		// used for debugging
@@ -114,132 +69,224 @@ function WSRPC(url, disableWebsocket) {
 		};
 	}
 
-	function reconnect() {
-		setTimeout(function () {
-			timeout = timeout > 10000 ? 10000 : timeout * 10;
-			connect()
-		}, timeout)
-	}
+	function queuePayload(payload) {
+		if (!!payload) {
+			var data;
+			if (payload.length > 1) {
+				data = JSON.stringify(payload);
+			}
+			if (payload.length === 1) {
+				data = JSON.stringify(payload[0])
+			}
 
-	function parseMessage(obj) {
-		var resolver = resolvers[obj.id];
-		if (!resolver) {
-			console.log('found stray msg: ', obj);
+			queue.push(data);
+		}
+
+		if (clearingQueue) {
 			return
 		}
 
-		if (resolver.type === 'call') {
-			delete resolvers[obj.id];
-			if (!!obj.error) {
-				if (!!resolver.catchCallback) {
-					resolver.catchCallback(obj)
-				}
-				resolver.reject(obj);
-				return;
-			}
+		startSending();
+		clearingQueue = false;
+	}
 
+	function reQueue() {
+		_.forEach(resolvers, function(resolver) {
+			queuePayload(resolver.payload);
 
-			if (resolver.callback) {
-				resolver.callback(obj)
-			}
-			resolver.resolve(obj);
-			return;
-		}
+			delete resolvers[resolver.id];
+		});
 
-		if (resolver.type === 'stream') {
-			if (!!obj.error) {
-				if (obj.error.code === 205) {
-					delete resolvers[obj.id];
-					if (!!resolver.finalCallback) {
-						resolver.finalCallback(obj)
-					}
-					return
-				}
+		startSending();
+	}
 
-				if (resolver.catchCallback) {
-					resolver.catchCallback(obj)
-				}
-				return;
-			}
+	function startSending() {
+		while(queue.length > 0) {
+			var data = queue.shift();
 
-			var cancel = false;
-			if (resolver.callback) {
-				resolver.callback(obj, function(){cancel = true})
-			}
-
-			if (cancel) {
+			if (!!ws && connected) {
+				ws.send(data);
 				return
 			}
 
-			if (!websocketEnabled) {
-				var watchers;
-				if (resolver.batchId !== undefined) {
-					watchers = batches[resolver.batchId];
-				} else {
-					watchers = [];
-					watchers.push(obj.id)
+			function onError(err) {
+				console.log("internal err: ", err);
+				return undefined
+			}
+
+			fetch(httpUrl, {
+				method: 'POST',
+				body: data,
+			}).then(
+				function (res) {
+					res.json().then(onmessage, onError)
+				},
+				function (err) {
+					err.json().then(onmessage, onError)
+				}
+			)
+		}
+	}
+
+	function onmessage(resp) {
+		if (Array.isArray(resp)) {
+			resp.forEach(parseMessage);
+			return;
+		}
+
+		parseMessage(resp);
+	}
+
+	function parseMessage(resp) {
+		var resolver = resolvers[resp.id];
+		if (!resolver) {
+			return
+		}
+
+		switch (resolver.type) {
+			case 'call':
+				resolveCall(resolver, resp);
+				break;
+			case 'stream':
+				if (connected) {
+					resolveStream(resolver, resp);
+					return;
 				}
 
-				watchers.forEach(function(id) {
-					var payload = resolvers[id].payload;
 
-					if (id === obj.id) {
-						payload.header = payload.header || {};
-						payload.header.State = obj.header.State;
+				var newPayload = [];
+				var batchIds = batches[resolver.batchId];
+				batches[resolver.batchId] = [];
+				batchIds.forEach(function(id) {
+					if (id !== resp.id) {
+						var r = resolvers[id];
+						if (!r || !r.payload) {
+							return
+						}
+
+						newPayload.push(r.payload);
+						batches[resolver.batchId].push(id);
+
+						return;
 					}
 
-					var data = JSON.stringify(payload);
-					if (connected) {
-						send(data);
-					} else {
-						stack.push(data)
+					if (!!resp.error) {
+						if (resp.error.code === 205) {
+							delete resolvers[resp.id];
+
+							if (!!resolver.finalCallback) {
+								resolver.finalCallback(resp)
+							}
+
+							return;
+						}
+
+						if (!!resolver.catchCallback) {
+							resolver.catchCallback(resp.error);
+						}
+						return;
 					}
-				})
+
+					var cancel = false;
+					if (!!resolver.callback) {
+						resolver.callback(resp, function(){cancel = true})
+					}
+
+					var p = resolver.payload;
+					p.header = resp.header;
+
+					newPayload.push(p);
+					batches[resolver.batchId].push(id);
+				});
+
+				if (newPayload.length > 0) {
+					queuePayload(newPayload);
+				}
+
+				break;
+			default:
+				console.log("invalid resolver type");
+				return
+		}
+	}
+
+	function resolveCall(resolver, resp) {
+		delete resolvers[resp.id];
+
+		if (!!resp.error) {
+			if (!!resolver.catchCallback) {
+				resolver.catchCallback(resp)
 			}
+			resolver.reject(resp);
+			return;
+		}
+
+
+		if (resolver.callback) {
+			resolver.callback(resp)
+		}
+
+		resolver.resolve(resp);
+	}
+
+	function resolveStream(resolver, resp) {
+		if (!!resp.error) {
+			if (resp.error.code === 205) {
+
+				delete resolvers[resp.id];
+
+				if (!!resolver.finalCallback) {
+					resolver.finalCallback(resp)
+				}
+
+				return;
+			}
+
+			if (!!resolver.catchCallback) {
+				resolver.catchCallback(resp)
+			}
+
+			return
+		}
+
+		var cancel = false;
+		if (!!resolver.callback) {
+			resolver.callback(resp, function(){cancel = true})
 		}
 	}
 
 	// If we receive too many errors over a short period of time we consider the web socket unstable and switch to long polling
 	function checkConnectivity() {
 		if (errCount > 10) {
-			websocketEnabled = false;
-			clearStack()
+			disableWebsocket = true;
+			// HTTP 101 Switching Protocols
+			ws.close(101);
 		}
 
 		errCount = 0;
 		setTimeout(checkConnectivity, 5000);
 	}
-	if (!websocketEnabled) {
-		checkConnectivity();
-	}
 
+	function newPayload(type, method, params, header) {
+		return {
+			jsonrpc: "2.0",
+			id: ++taskCounter,
+			type: type,
+			method: method,
+			params: params,
+			header: header,
+		}
+	}
 
 	connect();
-
-
-	function clearStack() {
-		if (!connected && !websocketEnabled) {
-			while (stack.length > 0) {
-				var data = stack.shift()
-				send(data);
-			}
-		}
-
-		setTimeout(function() {
-			if (!websocketEnabled) {
-				clearStack()
-			}
-		}, 100);
-	}
-	// clearStack();
-
-
 	return {
 		// args is assumed to be an object containing
 		// 1. Either/Both []{method, params} or method, params. Where params is optional for all methods and calls
 		// 2. a callback for successful calls
 		// 3. a callback for error handling
 		call: function (args) {
+			var batchId = batchCounter++;
+
 			if (!!args.method) {
 				args.calls = args.calls || [];
 
@@ -258,6 +305,7 @@ function WSRPC(url, disableWebsocket) {
 					payloads.push(payload);
 
 					resolvers[payload.id] = {
+						batchId: batchId,
 						type: 'call',
 						args: args,
 						resolve: resolve,
@@ -270,32 +318,22 @@ function WSRPC(url, disableWebsocket) {
 				promises.push(p)
 			});
 
-			var data;
-			if (payloads.length > 1) {
-				data = JSON.stringify(payloads);
-			}
-			if (payloads.length === 1) {
-				data = JSON.stringify(payloads[0])
-			}
-
-			if (connected) {
-				send(data)
-			} else {
-				stack.push(data)
-			}
+			queuePayload(payloads);
 
 			return promises.length > 1 ? promises : promises[0];
 		},
 		streamrx: function (args) {
+			var batchId = batchCounter++;
+
 			if (!!args.calls && args.calls.length > 1) {
 
-				args.batchId = batchCounter++;
 				batches[args.batchId] = [];
 			}
 			if (!!args.method) {
 				args.calls = args.calls || [];
 
 				args.calls.push({
+					header: args.header,
 					method: args.method,
 					params: args.params,
 				})
@@ -305,35 +343,20 @@ function WSRPC(url, disableWebsocket) {
 			args.calls.forEach(function (call) {
 				var payload = newPayload('STREAM', call.method, call.params, call.header);
 				payloads.push(payload);
-
-				if (args.batchId !== undefined) {
-					batches[args.batchId].push(payload.id);
-				}
+				batches[batchId] = batches[batchId] ? batches[batchId] : [];
+				batches[batchId].push(payload.id);
 
 				resolvers[payload.id] = {
+					batchId: batchId,
 					type: 'stream',
 					payload: payload,
-					batchId: args.batchId,
 					callback: args.callback,
 					catchCallback: args.catchCallback,
 					finalCallback: args.finalCallback,
 				};
 			});
 
-			var data;
-			if (payloads.length > 1) {
-				data = JSON.stringify(payloads);
-			}
-			if (payloads.length === 1) {
-				data = JSON.stringify(payloads[0])
-			}
-
-			if (connected) {
-				send(data);
-			} else {
-				stack.push(data)
-			}
-
+			queuePayload(payloads);
 		},
 	}
 }
