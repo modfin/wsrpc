@@ -8,8 +8,7 @@ if (!Array.isArray) {
 
 /* ----------------------------------------------- */
 /* ----------------------------------------------- */
-
-var ws = WSRPC("/kafka/ws", true);
+var ws = WSRPC("/kafka/ws", null,false);
 var responseArea = document.getElementById("resp");
 var responses = [];
 
@@ -55,10 +54,10 @@ function demoSend() {
 
 	switch (type) {
 		case 'STREAM':
-			ws.streamrx(args);
+			ws.streamrx(args).catch(() => {});
 			break;
 		case 'CALL':
-			ws.call(args);
+			ws.call(args).catch(() => {});
 			break;
 		default:
 			console.log("bad request type(s)");

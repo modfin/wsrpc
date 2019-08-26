@@ -1,6 +1,6 @@
 // TODO polyfill Promise API
 
-function WSRPC(url, disableWebsocket) {
+function WSRPC(url, defaultHeaders, disableWebsocket) {
 	var ws;
 	var connected = false;
 	var errCount = 0;
@@ -9,7 +9,7 @@ function WSRPC(url, disableWebsocket) {
 		url = window.location.host + url
 	}
 	var wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + url;
-	var httpUrl = window.location.protocol + '://' + url;
+	var httpUrl = window.location.protocol + '//' + url;
 
 	var clearingQueue = false;
 	var queue = [];
@@ -79,44 +79,46 @@ function WSRPC(url, disableWebsocket) {
 				data = JSON.stringify(payload[0])
 			}
 
-			queue.push(data);
-		}
-
-		if (clearingQueue) {
-			return
+			if (!!data) {
+				queue.push(data);
+			}
 		}
 
 		startSending();
-		clearingQueue = false;
 	}
 
 	function reQueue() {
-		_.forEach(resolvers, function(resolver) {
+		var resolversArr = Object.keys(resolvers);
+		resolversArr.forEach(function(key) {
+			var resolver = resolvers[key];
+
 			queuePayload(resolver.payload);
-
-			delete resolvers[resolver.id];
 		});
-
-		startSending();
 	}
 
 	function startSending() {
+		if (clearingQueue) {
+			return;
+		}
+
+		clearingQueue = true;
 		while(queue.length > 0) {
 			var data = queue.shift();
 
 			if (!!ws && connected) {
 				ws.send(data);
-				return
+				continue;
 			}
 
 			function onError(err) {
 				console.log("internal err: ", err);
-				return undefined
+				return undefined;
 			}
 
 			fetch(httpUrl, {
 				method: 'POST',
 				body: data,
+				headers: defaultHeaders ? defaultHeaders : undefined,
 			}).then(
 				function (res) {
 					res.json().then(onmessage, onError)
@@ -126,6 +128,8 @@ function WSRPC(url, disableWebsocket) {
 				}
 			)
 		}
+
+		clearingQueue = false;
 	}
 
 	function onmessage(resp) {
@@ -236,7 +240,7 @@ function WSRPC(url, disableWebsocket) {
 				delete resolvers[resp.id];
 
 				if (!!resolver.finalCallback) {
-					resolver.finalCallback(resp)
+					resolver.finalCallback(resp, function(){})
 				}
 
 				return;
@@ -304,10 +308,14 @@ function WSRPC(url, disableWebsocket) {
 					var payload = newPayload('CALL', call.method, call.params, call.header);
 					payloads.push(payload);
 
+					batches[batchId] = batches[batchId] ? batches[batchId] : [];
+					batches[batchId].push(payload.id);
+
 					resolvers[payload.id] = {
 						batchId: batchId,
 						type: 'call',
 						args: args,
+						payload: payload,
 						resolve: resolve,
 						reject: reject,
 						callback: args.callback,
