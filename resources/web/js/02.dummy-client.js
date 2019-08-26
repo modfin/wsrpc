@@ -54,7 +54,7 @@ function demoSend() {
 
 	switch (type) {
 		case 'STREAM':
-			ws.streamrx(args).catch(() => {});
+			ws.streamrx(args);
 			break;
 		case 'CALL':
 			ws.call(args).catch(() => {});
