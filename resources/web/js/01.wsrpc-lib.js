@@ -19,7 +19,8 @@ function WSRPC(url, defaultHeaders, disableWebsocket) {
 	var batchCounter = 0;
 	var batches = {};
 
-
+	var reConnectTimeout = 100;
+	var reConnectTimeoutLimit = 1200000;
 
 	function connect() {
 		if (disableWebsocket) {
@@ -31,14 +32,18 @@ function WSRPC(url, defaultHeaders, disableWebsocket) {
 
 		ws.onopen = function () {
 			connected = true;
+			reConnectTimeout = 100;
 
 			reQueue();
 			checkConnectivity();
 		};
 		ws.onclose = function () {
-			connected = false;
+			if (!!connected) {
+				connected = false;
+				reQueue();
+			}
 
-			reQueue();
+			reConnect();
 		};
 
 		// used for debugging
@@ -56,10 +61,11 @@ function WSRPC(url, defaultHeaders, disableWebsocket) {
 					console.log("confucious says WTF?");
 					break;
 				case WebSocket.CONNECTING:
+					break;
 				case WebSocket.CLOSING:
 				case WebSocket.CLOSED:
 				default:
-					connected = false;
+					ws.close(101);
 			}
 		};
 
@@ -72,11 +78,12 @@ function WSRPC(url, defaultHeaders, disableWebsocket) {
 	function queuePayload(payload) {
 		if (!!payload) {
 			var data;
-			if (payload.length > 1) {
-				data = JSON.stringify(payload);
-			}
-			if (payload.length === 1) {
-				data = JSON.stringify(payload[0])
+			if (Array.isArray(payload) && payload.length > 1) {
+				data = payload.length > 1
+					? JSON.stringify(payload)
+					: JSON.stringify(payload[0])
+			} else {
+				data = JSON.stringify(payload)
 			}
 
 			if (!!data) {
@@ -121,10 +128,10 @@ function WSRPC(url, defaultHeaders, disableWebsocket) {
 				headers: defaultHeaders ? defaultHeaders : undefined,
 			}).then(
 				function (res) {
-					res.json().then(onmessage, onError)
+					res.json().then(onmessage, onmessage)
 				},
 				function (err) {
-					err.json().then(onmessage, onError)
+					err.json().then(onmessage, onmessage)
 				}
 			)
 		}
@@ -259,16 +266,26 @@ function WSRPC(url, defaultHeaders, disableWebsocket) {
 		}
 	}
 
-	// If we receive too many errors over a short period of time we consider the web socket unstable and switch to long polling
+	// If we receive too many errors over a short period of time we consider the web socket unstable
+	// and switch to long polling
 	function checkConnectivity() {
-		if (errCount > 10) {
-			disableWebsocket = true;
-			// HTTP 101 Switching Protocols
+		if (errCount >= 10) {
 			ws.close(101);
 		}
 
 		errCount = 0;
 		setTimeout(checkConnectivity, 5000);
+	}
+
+	function reConnect() {
+		if (!!connected || disableWebsocket) {
+			return;
+		}
+
+		reConnectTimeout = reConnectTimeout * 2 <= reConnectTimeoutLimit
+			? reConnectTimeout * 2
+			: reConnectTimeoutLimit;
+		setTimeout(connect, reConnectTimeout);
 	}
 
 	function newPayload(type, method, params, header) {
@@ -282,7 +299,9 @@ function WSRPC(url, defaultHeaders, disableWebsocket) {
 		}
 	}
 
-	connect();
+	if (!disableWebsocket) {
+		reConnect();
+	}
 	return {
 		// args is assumed to be an object containing
 		// 1. Either/Both []{method, params} or method, params. Where params is optional for all methods and calls
