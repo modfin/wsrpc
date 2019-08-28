@@ -191,7 +191,7 @@ func (r *Router) startWS(sock *socket) error {
 	for {
 		t, data, err := sock.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsCloseError(err, 1001) {
+			if websocket.IsCloseError(err, 1001, 4000) {
 				return err
 			}
 
