@@ -11,6 +11,7 @@ import (
 )
 
 var (
+	// ErrContextCancelled is returned when detecting a cancelled context
 	ErrContextCancelled = errors.New("context cancelled")
 )
 

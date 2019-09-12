@@ -17,7 +17,6 @@ type Error struct {
 var (
 	errMissingRequestId = errors.New("missing request id")
 	errUnsupportedFrame = errors.New("frame content is not text")
-	ErrMissingParams    = errors.New("missing function parameters")
 	errMissingRequest   = errors.New("missing request")
 	errMixedTypes       = errors.New("mixed types is not allowed")
 	errMethodNotFound   = errors.New("method not found")

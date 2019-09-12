@@ -8,8 +8,10 @@ import (
 type RequestType string
 
 const (
+	// TypeStream refers to jobs of streaming character.
 	TypeStream RequestType = `STREAM`
-	TypeCall   RequestType = `CALL`
+	// TypeCall refers to jobs of on demand requests character.
+	TypeCall RequestType = `CALL`
 )
 
 // Response is serialized and passed back to the requester.

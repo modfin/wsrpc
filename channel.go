@@ -7,6 +7,7 @@ import (
 )
 
 var (
+	// ErrChanClosed is returned when writing to or reading from a closed channel
 	ErrChanClosed = errors.New("channel closed")
 )
 
