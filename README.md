@@ -3,6 +3,8 @@ A simple web socket api framework for sending json rpc requests.
 The framework is similar too but not necessarily compliant with the json rpc 2.0 standard.
 
 [![GoDoc](https://godoc.org/github.com/modfin/wsrpc?status.svg)](https://godoc.org/github.com/modfin/wsrpc)
+[![Go Report Card](https://goreportcard.com/badge/github.com/modfin/wsrpc)](https://goreportcard.com/report/github.com/modfin/wsrpc)
+[![License](http://img.shields.io/badge/license-mit-blue.svg?style=flat-square)](https://raw.githubusercontent.com/modfin/wsrpc/master/LICENSE.md)
 
 Web sockets are the primary transport method but the framework allows the client to fallback on long polls in case of unsuitable conditions.
 
