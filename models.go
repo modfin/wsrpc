@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 )
 
+// RequestType is used to denote what kind of job is being requested
 type RequestType string
 
 const (
@@ -11,6 +12,7 @@ const (
 	TypeCall   RequestType = `CALL`
 )
 
+// Response is serialized and passed back to the requester.
 type Response struct {
 	Id     int             `json:"id"`
 	Result json.RawMessage `json:"result"`
@@ -26,6 +28,7 @@ func newResponse(id int, err *Error) *Response {
 	}
 }
 
+// Request contains information about the job requested by the client.
 type Request struct {
 	Id     int             `json:"id"`
 	Method string          `json:"method"`

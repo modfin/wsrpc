@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"text/template"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
+// Router is used to demux incoming RPCs to the appropriate handlers.
 type Router struct {
 	errc         chan error
 	errPreProc   func(error) error
@@ -21,8 +21,10 @@ type Router struct {
 	rpcStreams   map[string]streamBundle
 }
 
-type SendFunction func(response *Response) error
+// CallHandler is used to register a handler for RPCs which require exactly one response.
 type CallHandler func(ctx Context) (err error)
+
+// StreamHandler is sued to register handlers which need to be able to send an unknown number of responses for any given request.
 type StreamHandler func(ctx Context, ch *ResponseChannel) (err error)
 
 type bundle struct {
@@ -40,6 +42,7 @@ type streamBundle struct {
 	stream StreamHandler
 }
 
+// Returns a new router with default settings
 func NewRouter() *Router {
 	return &Router{
 		wsUpgrade: websocket.Upgrader{
@@ -53,51 +56,9 @@ func NewRouter() *Router {
 	}
 }
 
+// ServeHTTP is responsible for interpreting incoming HTTP requests and if appropriate upgrade the connection to web sockets.
+// In either case it attempts to run the requested handler func.
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// TODO: remove this case from production
-	if req.RequestURI == "/client" {
-		const basedir = "/go/src/github.com/modfin/wsrpc/resources/web/"
-
-		b, err := ioutil.ReadFile(basedir + "index.tmpl.html")
-		if err != nil {
-			r.errc <- err
-		}
-
-		var buff []byte
-		files, err := ioutil.ReadDir(basedir + "js/")
-		if err != nil {
-			r.errc <- err
-		}
-
-		for _, f := range files {
-			buff = append(buff, '\n')
-
-			bb, err := ioutil.ReadFile(basedir + "js/" + f.Name())
-			if err != nil {
-				r.errc <- err
-			}
-
-			buff = append(buff, bb...)
-		}
-
-		tmpl, err := template.New("test").Parse(string(b))
-		if err != nil {
-			r.errc <- err
-		}
-
-		err = tmpl.Execute(w, struct {
-			JS string
-		}{
-			JS: string(buff),
-		})
-		if err != nil {
-			r.errc <- err
-		}
-
-		return
-	}
-	// Case end
-
 	sock := newSocket(w, req)
 	defer sock.kill()
 
@@ -134,6 +95,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 }
 
+// Start is used to start a web server on the supplied address.
 func (r *Router) Start(address string) error {
 	defer close(r.errc)
 
@@ -153,18 +115,23 @@ func (r *Router) Start(address string) error {
 	return http.ListenAndServe(address, r)
 }
 
+// Use applies middleware to router
 func (r *Router) Use(middleware ...Middleware) {
 	r.middleware = append(r.middleware, middleware...)
 }
 
+// SetErrorPreProc is called on an error before it is propagated back out.
 func (r *Router) SetErrorPreProc(fn func(error) error) {
 	r.errPreProc = fn
 }
 
+// SettErrorPostProc is called on errors that are propagated out of the system.
+// Outside of middlewares this is the last chance to handle the error.
 func (r *Router) SetErrorPostProc(fn func(error)) {
 	r.errPostProc = fn
 }
 
+// SetHandler registers a call handler func.
 func (r *Router) SetHandler(method string, handler CallHandler, middleware ...Middleware) {
 	r.rpcFunctions[method] = functionBundle{
 		bundle: bundle{
@@ -175,6 +142,7 @@ func (r *Router) SetHandler(method string, handler CallHandler, middleware ...Mi
 	}
 }
 
+// SetStream registers a stream handler func.
 func (r *Router) SetStream(method string, handler StreamHandler, middleware ...Middleware) {
 	r.rpcStreams[method] = streamBundle{
 		bundle: bundle{
@@ -217,7 +185,7 @@ func (r *Router) startWS(sock *socket) error {
 }
 
 func (r *Router) startLongPoll(sock *socket) error {
-	defer sock.channel.clear()
+	defer sock.kill()
 
 	data, err := ioutil.ReadAll(sock.req.Body)
 	if err != nil {

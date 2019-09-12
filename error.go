@@ -6,6 +6,7 @@ import (
 	"fmt"
 )
 
+// Error contains all the necessary info when handling or returning an error in the wsrpc server.
 type Error struct {
 	Code    int             `json:"code"`
 	Message string          `json:"message"`
@@ -22,10 +23,12 @@ var (
 	errMethodNotFound   = errors.New("method not found")
 )
 
+// Error is a stringer
 func (r Error) Error() string {
 	return fmt.Sprintf("wsrpc: %v, message=%s", r.Code, r.Message)
 }
 
+// TypeNotFoundError is called when an invalid request type is requested.
 func TypeNotFoundError(t RequestType) *Error {
 	return &Error{
 		Code:    -32600,
@@ -33,6 +36,7 @@ func TypeNotFoundError(t RequestType) *Error {
 	}
 }
 
+// MethodNotFoundError is called when a non existing method is requested.
 func MethodNotFoundError(method string) *Error {
 	return &Error{
 		Code:    -32601,
@@ -40,6 +44,7 @@ func MethodNotFoundError(method string) *Error {
 	}
 }
 
+// IdIsRequiredError is called when an id is missing from a request.
 func IdIsRequiredError() *Error {
 	return &Error{
 		Code:    -32600,
@@ -47,6 +52,7 @@ func IdIsRequiredError() *Error {
 	}
 }
 
+// ServerError repackages any regular error message into a wsrpc error which can be passed to a response.
 func ServerError(message string) *Error {
 	return &Error{
 		Code:    -32000,
@@ -54,6 +60,7 @@ func ServerError(message string) *Error {
 	}
 }
 
+// EOF is used to denote end of contents in stream requests.
 func EOF() *Error {
 	return &Error{
 		Code:    205,

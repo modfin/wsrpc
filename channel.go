@@ -10,12 +10,15 @@ var (
 	ErrChanClosed = errors.New("channel closed")
 )
 
+// InfChannel is used to pass data of unspecified types inside the wsrpc server.
+// It is not meant to be made available inside a request handler like it's sibling ResponseChannel is
 type InfChannel struct {
 	ch     chan interface{}
 	once   sync.Once
 	closed chan struct{}
 }
 
+// NewInfChannel returns a new InfChannel
 func NewInfChannel() *InfChannel {
 	return &InfChannel{
 		ch:     make(chan interface{}),
@@ -23,6 +26,7 @@ func NewInfChannel() *InfChannel {
 	}
 }
 
+// Close closes the channel.
 func (c *InfChannel) Close() {
 	c.once.Do(func() {
 		close(c.closed)
@@ -75,6 +79,7 @@ func (c *InfChannel) clear() {
 
 }
 
+// ResponseChannel is passed to stream handlers to allow the implementer an easy way of sending responses back to the requester.
 type ResponseChannel struct {
 	ch     chan *Response
 	once   sync.Once
@@ -82,6 +87,7 @@ type ResponseChannel struct {
 	closed chan struct{}
 }
 
+// NewResponseChannel returns a new ResponseChannel.
 func NewResponseChannel(size int) *ResponseChannel {
 	return &ResponseChannel{
 		ch:     make(chan *Response, size),
@@ -89,6 +95,7 @@ func NewResponseChannel(size int) *ResponseChannel {
 	}
 }
 
+// Close closes the ResponseChannel.
 func (c *ResponseChannel) Close() {
 	c.once.Do(func() {
 		c.mutex.Lock()
@@ -98,6 +105,7 @@ func (c *ResponseChannel) Close() {
 	})
 }
 
+// Closed checks wether or not a ResponseChannel is closed.
 func (c *ResponseChannel) Closed() bool {
 	select {
 	case <-c.closed:
@@ -108,6 +116,8 @@ func (c *ResponseChannel) Closed() bool {
 	return false
 }
 
+// Write sends a message through the ResponseChannel.
+// Stream handlers are configured to pass this message back to the requester if possible.
 func (c *ResponseChannel) Write(msg *Response) (err error) {
 	defer func() {
 		if recover() != nil {

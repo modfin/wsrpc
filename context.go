@@ -14,6 +14,8 @@ var (
 	ErrContextCancelled = errors.New("context cancelled")
 )
 
+// Context is passed to request handlers with data that might be needed to handle the request.
+// It fulfills the Context interface and adds a few wsrpc specific methods as well.
 type Context interface {
 	context.Context
 
@@ -93,10 +95,10 @@ func createBatch(data []byte, httpRequest *http.Request) (*batch, error) {
 			ctx, cancel := context.WithCancel(context.Background())
 
 			batch.jobs = append(batch.jobs, job{
-				Context:  ctx,
-				cancel:   cancel,
-				request:  &req,
-				response: newResponse(req.Id, nil),
+				Context:     ctx,
+				cancel:      cancel,
+				request:     &req,
+				response:    newResponse(req.Id, nil),
 				httpRequest: httpRequest,
 			})
 		}
@@ -115,10 +117,10 @@ func createBatch(data []byte, httpRequest *http.Request) (*batch, error) {
 		ctx, cancel := context.WithCancel(context.Background())
 		batch.jobs = []job{
 			{
-				Context:  ctx,
-				cancel:   cancel,
-				request:  &req,
-				response: newResponse(req.Id, nil),
+				Context:     ctx,
+				cancel:      cancel,
+				request:     &req,
+				response:    newResponse(req.Id, nil),
 				httpRequest: httpRequest,
 			},
 		}
@@ -165,35 +167,40 @@ func (b *batch) killJob(id int) {
 type job struct {
 	context.Context
 
-	cancel   func()
-	once     sync.Once
-	request  *Request
+	cancel      func()
+	once        sync.Once
+	request     *Request
 	httpRequest *http.Request
-	response *Response
+	response    *Response
 }
 
 func (j *job) kill() {
 	j.once.Do(j.cancel)
 }
 
+// NewResponse returns a new response which can be returned to the requester passively or by writing into a ResponseChannel.
 func (j job) NewResponse() *Response {
 	return newResponse(j.Request().Id, nil)
 }
 
+// Request returns the request tied to the current jobs context
 func (j job) Request() *Request {
 	return j.request
 }
 
+// Response returns the current response meant for the requester.
 func (j job) Response() *Response {
 	return j.response
 }
 
+// WithValue repackages the context interface method WithValue to add a value to a job context and return itself.
 func (j job) WithValue(key interface{}, value interface{}) Context {
 	j.Context = context.WithValue(j.Context, key, value)
 
 	return j
 }
 
-func (j job) HttpRequest() *http.Request{
+// HttpRequest returns the original HTTP request that started the web socket or long poll request.
+func (j job) HttpRequest() *http.Request {
 	return j.httpRequest
 }
