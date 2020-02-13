@@ -52,10 +52,15 @@ func IdIsRequiredError() *Error {
 }
 
 // ServerError repackages any regular error message into a wsrpc error which can be passed to a response.
-func ServerError(message string) *Error {
+func ServerError(outpErr error) *Error {
+	errData, err := json.Marshal(outpErr)
+	if err != nil {
+		errData = json.RawMessage(err.Error())
+	}
 	return &Error{
 		Code:    -32000,
-		Message: fmt.Sprintf("server error: %s", message),
+		Message: fmt.Sprintf("server error: %s", outpErr.Error()),
+		Data:    errData,
 	}
 }
 

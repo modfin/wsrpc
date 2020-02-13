@@ -250,7 +250,7 @@ func (r *Router) routeRequest(batch *batch, outc *InfChannel) {
 			err := handler()
 			if err != nil {
 				resp := job.NewResponse()
-				resp.Error = ServerError(err.Error())
+				resp.Error = ServerError(err)
 
 				err = batchc.Write(resp)
 				if err != nil {
