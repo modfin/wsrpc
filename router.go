@@ -154,12 +154,27 @@ func (r *Router) SetStream(method string, handler StreamHandler, middleware ...M
 }
 
 func (r *Router) startWS(sock *socket) error {
+	defer func() {
+		err := sock.conn.Close()
+		if err != nil {
+			r.errc <- err
+		}
+	}()
+
 	go r.sendOutput(sock.conn, sock.channel)
 
+	var errCount int64
 	for {
 		t, data, err := sock.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsCloseError(err, 1001, 4000) {
+			// ReadMessage() will panic after 1000 failed reads,
+			// this is a simple attempt to bypass that panic.
+			if errCount > 500 {
+				return err
+			}
+			errCount++
+
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, 4000) {
 				return err
 			}
 
@@ -167,6 +182,7 @@ func (r *Router) startWS(sock *socket) error {
 
 			continue
 		}
+		errCount = 0
 
 		if t != websocket.TextMessage {
 			r.errc <- r.errPreProc(errUnsupportedFrame)
