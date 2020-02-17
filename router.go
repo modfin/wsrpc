@@ -167,18 +167,20 @@ func (r *Router) startWS(sock *socket) error {
 	for {
 		t, data, err := sock.conn.ReadMessage()
 		if err != nil {
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, 4000) {
+				return err
+			}
+			if err.Error() == "websocket: invalid close code" {
+				return fmt.Errorf("frame type: %d, err: %v", t, err)
+			}
+
+			// This case should not occur anymore.
 			// ReadMessage() will panic after 1000 failed reads,
 			// this is a simple attempt to bypass that panic.
 			if errCount > 500 {
 				return err
 			}
 			errCount++
-
-			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, 4000) {
-				return err
-			}
-
-			r.errc <- r.errPreProc(err)
 
 			continue
 		}
