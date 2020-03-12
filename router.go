@@ -291,7 +291,7 @@ func (r *Router) routeRequest(batch *batch, outc *InfChannel) {
 			}
 
 			if res.Error != nil && res.Error.Code == 205 {
-				batch.killJob(res.Id)
+				batch.killJob(res.JobId)
 				runningJobs--
 			}
 			err = outc.write(res)

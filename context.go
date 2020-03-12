@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -94,16 +95,16 @@ func createBatch(data []byte, httpRequest *http.Request) (*batch, error) {
 			req := requests[i]
 
 			ctx, cancel := context.WithCancel(context.Background())
+			ctx = context.WithValue(ctx, "rpcId", req.JobId)
 
 			batch.jobs = append(batch.jobs, job{
 				Context:     ctx,
 				cancel:      cancel,
 				request:     &req,
-				response:    newResponse(req.Id, nil),
+				response:    newResponse(req.Id, req.JobId, nil),
 				httpRequest: httpRequest,
 			})
 		}
-
 	}
 
 	if len(data) > 0 && data[0] == '{' {
@@ -116,12 +117,14 @@ func createBatch(data []byte, httpRequest *http.Request) (*batch, error) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+		ctx = context.WithValue(ctx, "rpcId", req.JobId)
+
 		batch.jobs = []job{
 			{
 				Context:     ctx,
 				cancel:      cancel,
 				request:     &req,
-				response:    newResponse(req.Id, nil),
+				response:    &Response{Id: req.Id, JobId: req.JobId},
 				httpRequest: httpRequest,
 			},
 		}
@@ -133,7 +136,7 @@ func createBatch(data []byte, httpRequest *http.Request) (*batch, error) {
 
 	batch.isStream = batch.jobs[0].request.Type == TypeStream
 	for _, job := range batch.jobs {
-		if job.request.Id == 0 {
+		if job.request.Id == 0 && job.request.JobId == uuid.Nil {
 			return nil, errMissingRequestId
 		}
 
@@ -157,9 +160,9 @@ func (b *batch) kill() {
 	})
 }
 
-func (b *batch) killJob(id int) {
+func (b *batch) killJob(id uuid.UUID) {
 	for i := range b.jobs {
-		if b.jobs[i].request.Id == id {
+		if b.jobs[i].request.JobId == id {
 			b.jobs[i].kill()
 		}
 	}
@@ -181,7 +184,7 @@ func (j *job) kill() {
 
 // NewResponse returns a new response which can be returned to the requester passively or by writing into a ResponseChannel.
 func (j job) NewResponse() *Response {
-	return newResponse(j.Request().Id, nil)
+	return newResponse(j.Request().Id, j.Request().JobId, nil)
 }
 
 // Request returns the request tied to the current jobs context
