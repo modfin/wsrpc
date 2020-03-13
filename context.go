@@ -95,7 +95,7 @@ func createBatch(data []byte, httpRequest *http.Request) (*batch, error) {
 			req := requests[i]
 
 			ctx, cancel := context.WithCancel(context.Background())
-			ctx = context.WithValue(ctx, "rpcId", req.JobId)
+			ctx = context.WithValue(ctx, "rpcId", req.JobId.String())
 
 			batch.jobs = append(batch.jobs, job{
 				Context:     ctx,
@@ -117,7 +117,7 @@ func createBatch(data []byte, httpRequest *http.Request) (*batch, error) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
-		ctx = context.WithValue(ctx, "rpcId", req.JobId)
+		ctx = context.WithValue(ctx, "rpcId", req.JobId.String())
 
 		batch.jobs = []job{
 			{
