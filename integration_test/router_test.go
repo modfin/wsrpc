@@ -67,7 +67,7 @@ func setupRouter() *wsrpc.Router {
 			rsp := ctx.NewResponse()
 			rsp.Result, err = json.Marshal(s)
 			if err != nil {
-				ctx.Response().Error = wsrpc.ServerError("failed to encode response")
+				ctx.Response().Error = wsrpc.ServerError(errors.New("failed to encode response"))
 				return err
 			}
 
@@ -76,7 +76,7 @@ func setupRouter() *wsrpc.Router {
 
 			err = ch.Write(rsp)
 			if err != nil {
-				ctx.Response().Error = wsrpc.ServerError("failed to write response")
+				ctx.Response().Error = wsrpc.ServerError(errors.New("failed to write response"))
 				return err
 			}
 		}
@@ -118,7 +118,7 @@ func setupRouter() *wsrpc.Router {
 
 			err = ch.Write(rsp)
 			if err != nil {
-				ctx.Response().Error = wsrpc.ServerError("failed to write response")
+				ctx.Response().Error = wsrpc.ServerError(errors.New("failed to write response"))
 
 				return err
 			}
