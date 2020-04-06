@@ -46,7 +46,8 @@ type Request struct {
 type RequestTarget Request
 
 func (r *Request) MarshalJSON() ([]byte, error) {
-	return json.Marshal(r)
+	rt := RequestTarget(*r)
+	return json.Marshal(rt)
 }
 
 func (r *Request) UnmarshalJSON(data []byte) error {
