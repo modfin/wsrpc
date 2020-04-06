@@ -291,6 +291,5 @@ func someStreamHandler(ctx wsrpc.Context, ch *wsrpc.ResponseChannel) error {
 * Stream handlers channels go straight to client, mind your output
 
 ## Issues
-* The error handling could probably be done with middleware, alternatively a logger could be attached
-* Attaching request IDs to each context will make debugging and error tracing easier 
+* The error handling could probably be done with middleware, alternatively a logger could be attached 
 * A data race occurs for both wrapped channel types when a stream handler is called with long polling.
