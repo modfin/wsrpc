@@ -383,7 +383,10 @@ func (r *Router) createHandler(job job, jobc *ResponseChannel) (func() error, *E
 				return err
 			}
 
-			jobc.ch <- job.response
+			err = jobc.Write(job.response)
+			if err != nil {
+				return err
+			}
 
 			return nil
 		}
