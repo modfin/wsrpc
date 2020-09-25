@@ -2,6 +2,7 @@ package wsrpc
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -311,6 +312,11 @@ func (r *Router) routeRequest(batch *batch, outc *InfChannel) {
 			continue
 		}
 		result = append(result, res)
+	}
+
+	if len(result) == 0 {
+		r.errc <- r.errPreProc(errors.New("either batch has no jobs or all batch jobs channels are closed"))
+		return
 	}
 
 	var res interface{} = result
