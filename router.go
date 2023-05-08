@@ -57,6 +57,29 @@ func NewRouter() *Router {
 	}
 }
 
+type Config struct {
+	// Specifies the allowed origins that can initiate a websocket connection
+	Origins []string
+}
+
+// NewRouterFromConfig returns a new router from a custom Config.
+func NewRouterFromConfig(cfg *Config) *Router {
+	router := NewRouter()
+	router.wsUpgrade.CheckOrigin = func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+
+		for _, o := range cfg.Origins {
+			if o == origin {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	return router
+}
+
 // ServeHTTP is responsible for interpreting incoming HTTP requests and if appropriate upgrade the connection to web sockets.
 // In either case it attempts to run the requested handler func.
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
