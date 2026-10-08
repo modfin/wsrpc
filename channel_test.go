@@ -115,6 +115,7 @@ func TestInfChannel_write(t *testing.T) {
 	}
 
 	for _, tc := range tt {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			ch := NewInfChannel()
 			defer ch.Close()
@@ -269,6 +270,7 @@ func TestInfChannel_clear(t *testing.T) {
 	}
 
 	for _, tc := range tt {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			ch := NewInfChannel()
 
