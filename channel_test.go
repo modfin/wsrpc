@@ -115,6 +115,7 @@ func TestInfChannel_write(t *testing.T) {
 	}
 
 	for _, tc := range tt {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			ch := NewInfChannel()
 			defer ch.Close()
@@ -123,7 +124,8 @@ func TestInfChannel_write(t *testing.T) {
 				go func() {
 					_, err := ch.read()
 					if err != nil && err != tc.expectedErr {
-						t.Fatalf("unexpected error while reading: %v", err)
+						t.Errorf("unexpected error while reading: %v", err)
+						return
 					}
 				}()
 			}
@@ -269,6 +271,7 @@ func TestInfChannel_clear(t *testing.T) {
 	}
 
 	for _, tc := range tt {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			ch := NewInfChannel()
 
@@ -282,7 +285,8 @@ func TestInfChannel_clear(t *testing.T) {
 						default:
 							_, err := ch.read()
 							if err != nil && err != tc.expectedErr {
-								t.Fatalf("unexpected err while reading: %v", err)
+								t.Errorf("unexpected err while reading: %v", err)
+								return
 							}
 						}
 					}
@@ -301,7 +305,8 @@ func TestInfChannel_clear(t *testing.T) {
 						default:
 							err := ch.write(defaultString)
 							if err != nil && err != tc.expectedErr {
-								t.Fatalf("unexpected err while reading: %v", err)
+								t.Errorf("unexpected err while reading: %v", err)
+								return
 							}
 						}
 					}
@@ -503,7 +508,8 @@ func TestResponseChannel_read(t *testing.T) {
 				go func() {
 					err := ch.Write(&Response{})
 					if err != nil {
-						t.Fatalf("unexpected err while writing: %v", err)
+						t.Errorf("unexpected err while writing: %v", err)
+						return
 					}
 				}()
 				time.Sleep(1 * time.Second)

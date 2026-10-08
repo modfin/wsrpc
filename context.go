@@ -100,6 +100,7 @@ func createBatch(data []byte, httpRequest *http.Request) (*batch, error) {
 			batch.jobs = append(batch.jobs, job{
 				Context:     ctx,
 				cancel:      cancel,
+				once:        &sync.Once{},
 				request:     &req,
 				response:    newResponse(req.Id, req.JobId, nil),
 				httpRequest: httpRequest,
@@ -123,6 +124,7 @@ func createBatch(data []byte, httpRequest *http.Request) (*batch, error) {
 			{
 				Context:     ctx,
 				cancel:      cancel,
+				once:        &sync.Once{},
 				request:     &req,
 				response:    &Response{Id: req.Id, JobId: req.JobId},
 				httpRequest: httpRequest,
@@ -172,7 +174,7 @@ type job struct {
 	context.Context
 
 	cancel      func()
-	once        sync.Once
+	once        *sync.Once
 	request     *Request
 	httpRequest *http.Request
 	response    *Response
