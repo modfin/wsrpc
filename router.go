@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"runtime/debug"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -218,6 +219,7 @@ func (r *Router) startWS(sock *socket) error {
 		batch, err := createBatch(data, sock.req)
 		if err != nil {
 			r.errc <- r.errPreProc(err)
+			continue
 		}
 
 		sock.batches = append(sock.batches, batch)
@@ -267,6 +269,11 @@ func (r *Router) startLongPoll(sock *socket) error {
 
 func (r *Router) routeRequest(batch *batch, outc *InfChannel) {
 	defer batch.kill()
+	defer func() {
+		if p := recover(); p != nil {
+			r.errc <- r.errPreProc(fmt.Errorf("panic in routeRequest: %v\n%s", p, debug.Stack()))
+		}
+	}()
 
 	batchc := batch.channel
 
@@ -289,6 +296,20 @@ func (r *Router) routeRequest(batch *batch, outc *InfChannel) {
 		}
 
 		go func() {
+			defer func() {
+				if p := recover(); p != nil {
+					r.errc <- r.errPreProc(fmt.Errorf("panic in handler %s: %v\n%s", job.request.Method, p, debug.Stack()))
+
+					resp := job.NewResponse()
+					resp.Error = ServerError(fmt.Errorf("panic: %v", p))
+
+					err := batchc.Write(resp)
+					if err != nil {
+						r.errc <- r.errPreProc(err)
+					}
+				}
+			}()
+
 			err := handler()
 			if err != nil {
 				resp := job.NewResponse()

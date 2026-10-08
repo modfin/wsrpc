@@ -56,6 +56,9 @@ func (r *Request) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
+	if rt == nil {
+		return nil
+	}
 
 	*r = Request(*rt)
 
